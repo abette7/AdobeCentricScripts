@@ -1,3 +1,4 @@
+rem This script runs as a drop script
 Set objArgs = WScript.Arguments
 Set objFSO = CreateObject("Scripting.FileSystemObject")
 
