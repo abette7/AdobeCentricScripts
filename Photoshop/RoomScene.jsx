@@ -1,12 +1,14 @@
 #target Photoshop
 function main(argv) {
+//Variables set from Scriptik, comment out these and the call for main() at the EOF when using scriptik
     var fileName = File(argv[0]).fsName.toString();
-	//var fileName = '/Users/adam.betterton/Desktop/In/919WL_252WL.tif';
     var inFolder = argv[1].toString();
-	//var inFolder = '/Users/adam.betterton/Desktop/In';
     var outFolder = argv[2].toString();
-	//var outFolder = '/Users/adam.betterton/Desktop/Out';
- 	//alert(fileName + '\n' + inFolder + '\n' + outFolder);
+//Variables for executing within photoshop, comment out the variables above and activate the call to main() at the EOF
+	//var fileName = '~Desktop/In/919WL_252WL.tif';
+	//var inFolder = '~/Desktop/In';
+	//var outFolder = '~/Desktop/Out';
+	
 	var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/SS_RoomScenes");
 	var myRoomScenes = myRoomFolder.getFiles();
 	var docRef = app.open(File(fileName));
@@ -30,20 +32,15 @@ function main(argv) {
 		//save jpg as a copy:
 		var thedoc = app.activeDocument;
 		thedoc.saveAs((new File(folderString+"/"+swatchName+"_"+roomName+"_RS.jpg")),jpegOptions,true);
+		
+		//Write a caption file
 		var captionFile = folderString+"/"+swatchName+"_"+roomName+"_RS.txt";
 		var myCaption = new File(captionFile);
 		myCaption.encoding = "UTF8";
 		try {
-		  // Open the file for writing
 		  myCaption.open("w");
-
-		  // Write the content
 		  myCaption.writeln("A room with floor "+swatchName+".");
-
-		  // Close the file
 		  myCaption.close();
-
-		  
 		} catch (e) {
 		  alert("Error writing file: " + e);
 		}
@@ -54,31 +51,22 @@ function main(argv) {
 }
 
 function moveFile(sourceFilePath, destinationFolderPath) {
-    // Create File object for the source file
+// Move a processed file from the inFolder to the outFolder
     var sourceFile = new File(sourceFilePath);
-
-    // Create Folder object for the destination folder
     var destinationFolder = new Folder(destinationFolderPath);
-
-    // Check if the source file exists
     if (!sourceFile.exists) {
         alert("Error: Source file does not exist.");
         return false;
     }
 
-    // Check if the destination folder exists, and create it if it doesn't
     if (!destinationFolder.exists) {
         destinationFolder.create();
     }
 
-    // Construct the full path for the new file location
     var newFilePath = new File(destinationFolder.fsName + "/" + sourceFile.name);
 
-    // Copy the file to the new location
     if (sourceFile.copy(newFilePath)) {
-        // If the copy is successful, delete the original file
         if (sourceFile.remove()) {
-            //alert("File moved successfully to: " + newFilePath.fsName);
             return true;
         } else {
             alert("Error: Could not delete the original file.");
@@ -92,10 +80,9 @@ function moveFile(sourceFilePath, destinationFolderPath) {
 
 	
 function getBaseName() {
-
+//Get the base name of the file name being processed
 	if (app.documents.length > 0) {
 	var thedoc = app.activeDocument;
-	// getting the name and location;
 	var docName = thedoc.name;
 	if (docName.indexOf(".") != -1) {var basename = docName.match(/(.*)\.[^\.]+$/)[1]}
 	else {var basename = docName};
@@ -104,6 +91,7 @@ function getBaseName() {
 }
 
 function definePattern() {
+//Create a pattern from an image
 	var idset = stringIDToTypeID( "set" );
 	    var desc367 = new ActionDescriptor();
 	    var idnull = stringIDToTypeID( "null" );
@@ -144,13 +132,14 @@ function definePattern() {
 	        ref20.putEnumerated( iddocument, idordinal, idtargetEnum );
 	    desc378.putReference( idusing, ref20 );
 	    var idname = stringIDToTypeID( "name" );
+		//The following line sets the pattern name
 	    desc378.putString( idname, """myPattern""" );
 	executeAction( idmake, desc378, DialogModes.NO );
 	activeDocument.close();
 }
 
 function editSmartObject() {
-
+//Modify a smart object in a photoshop PSD/PSB file 
 var doc0 = app.activeDocument;
 
 var idselectNoLayers = stringIDToTypeID( "selectNoLayers" );
@@ -170,6 +159,7 @@ var idselect = stringIDToTypeID( "select" );
     var idnull = stringIDToTypeID( "null" );
         var ref28 = new ActionReference();
         var idlayer = stringIDToTypeID( "layer" );
+		//The following line selects the smart object to edit using a layer name
         ref28.putName( idlayer, "Floor" );
     desc402.putReference( idnull, ref28 );
     var idmakeVisible = stringIDToTypeID( "makeVisible" );
@@ -208,6 +198,7 @@ var idset = stringIDToTypeID( "set" );
         var idpattern = stringIDToTypeID( "pattern" );
             var desc434 = new ActionDescriptor();
             var idname = stringIDToTypeID( "name" );
+			//The following line uses the pattern name that was set in the definePattern() function
             desc434.putString( idname, """myPattern""" );
             var idID = stringIDToTypeID( "ID" );
             //desc434.putString( idID, """9d52750d-e4a2-5941-af56-defbcd87d87d""" );
@@ -222,6 +213,7 @@ activeDocument.close();
 }
 
 function updateSmartObject() {
+//Update the smart object call this after the editSmartObject() function
     var idplacedLayerUpdateAllModified = stringIDToTypeID("placedLayerUpdateAllModified");
     var desc = new ActionDescriptor();
     executeAction(idplacedLayerUpdateAllModified, desc, DialogModes.NO);
