@@ -5,24 +5,26 @@ function main(argv) {
     var inFolder = argv[1].toString();
     var outFolder = argv[2].toString();
 //Variables for executing within photoshop, comment out the variables above and activate the call to main() at the EOF
-	//var fileName = '~Desktop/In/919WL_252WL.tif';
+	//var fileName = '~/Desktop/In/919WL_252WL.tif';
 	//var inFolder = '~/Desktop/In';
 	//var outFolder = '~/Desktop/Out';
 	
-	var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/SS_RoomScenes");
+	//Location for layered room images. 
+	var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/Res_RoomScenes");
 	var myRoomScenes = myRoomFolder.getFiles();
 	var docRef = app.open(File(fileName));
 	
 	var swatchName = getBaseName();	
+	var installMethod = docRef.info.keywords;
+
 	definePattern();
 
-	moveFile(fileName, outFolder);
 	for (var i = 0; i < myRoomScenes.length; i++) {
 		var roomFileRef = app.open(File(myRoomScenes[i]));
 		var roomName = getBaseName();
 		editSmartObject();
 		updateSmartObject();
-		var folderString = outFolder+"/" + "DataSet";
+		var folderString = outFolder+"/" + "Res_DataSet";
 		if (Folder(folderString).exists == false) {new Folder(folderString).create()};
 		// jpg options;
 		var jpegOptions = new JPEGSaveOptions();
@@ -31,6 +33,13 @@ function main(argv) {
 		jpegOptions.matte = MatteType.NONE;
 		//save jpg as a copy:
 		var thedoc = app.activeDocument;
+		//var roomKeywords = thedoc.info.keywords;
+		//var myKeywords = roomKeywords+" with floor "+swatchName+" installed "+installMethod+".";
+		var roomDesc = thedoc.info.caption;
+		var myRoomDesc = roomDesc+" with floor "+swatchName+" installed "+installMethod+".";
+		var myKeywords = ""
+		thedoc.info.keywords = [myKeywords];
+		thedoc.info.caption = myRoomDesc;
 		thedoc.saveAs((new File(folderString+"/"+swatchName+"_"+roomName+"_RS.jpg")),jpegOptions,true);
 		
 		//Write a caption file
@@ -39,7 +48,7 @@ function main(argv) {
 		myCaption.encoding = "UTF8";
 		try {
 		  myCaption.open("w");
-		  myCaption.writeln("A room with floor "+swatchName+".");
+		  myCaption.writeln(myRoomDesc);
 		  myCaption.close();
 		} catch (e) {
 		  alert("Error writing file: " + e);
@@ -47,7 +56,9 @@ function main(argv) {
 		
 		app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
 	}
-
+	
+	deletePatternByName('myPattern');
+	moveFile(fileName, outFolder);
 }
 
 function moveFile(sourceFilePath, destinationFolderPath) {
@@ -218,4 +229,24 @@ function updateSmartObject() {
     var desc = new ActionDescriptor();
     executeAction(idplacedLayerUpdateAllModified, desc, DialogModes.NO);
 }
+
+function deletePatternByName(patternName) {
+	//Delete pattern previously created
+    var s2t = function(s) { return app.stringIDToTypeID(s); };
+
+    try {
+        var ref = new ActionReference();
+        ref.putName(s2t('pattern'), patternName); // Target the pattern by its name
+
+        var desc = new ActionDescriptor();
+        desc.putReference(s2t('target'), ref);
+
+        executeAction(s2t('delete'), desc, DialogModes.NO);
+        //alert("Pattern '" + patternName + "' deleted successfully.");
+    } catch (e) {
+        alert("Error deleting pattern: " + e.message);
+    }
+}
+
+
 //main();
