@@ -18,7 +18,7 @@ function main(argv) {
 	var installMethod = docRef.info.keywords;
 
 	definePattern();
-
+	moveFile(fileName, outFolder);
 	for (var i = 0; i < myRoomScenes.length; i++) {
 		var roomFileRef = app.open(File(myRoomScenes[i]));
 		var roomName = getBaseName();
@@ -58,7 +58,7 @@ function main(argv) {
 	}
 	
 	deletePatternByName('myPattern');
-	moveFile(fileName, outFolder);
+
 }
 
 function moveFile(sourceFilePath, destinationFolderPath) {
@@ -118,13 +118,7 @@ function definePattern() {
 	executeAction( idset, desc367, DialogModes.NO );
 
 	// =======================================================
-	var idcopyEvent = stringIDToTypeID( "copyEvent" );
-	    var desc368 = new ActionDescriptor();
-	    var idcopyHint = stringIDToTypeID( "copyHint" );
-	    desc368.putString( idcopyHint, """pixels""" );
-	executeAction( idcopyEvent, desc368, DialogModes.NO );
 
-	// =======================================================
 	var idmake = stringIDToTypeID( "make" );
 	    var desc378 = new ActionDescriptor();
 	    var idnull = stringIDToTypeID( "null" );
@@ -145,6 +139,7 @@ function definePattern() {
 	    var idname = stringIDToTypeID( "name" );
 		//The following line sets the pattern name
 	    desc378.putString( idname, """myPattern""" );
+		//alert("definePattern()")
 	executeAction( idmake, desc378, DialogModes.NO );
 	activeDocument.close();
 }
@@ -162,9 +157,11 @@ var idselectNoLayers = stringIDToTypeID( "selectNoLayers" );
         var idtargetEnum = stringIDToTypeID( "targetEnum" );
         ref27.putEnumerated( idlayer, idordinal, idtargetEnum );
     desc401.putReference( idnull, ref27 );
+	//alert("editSmartObject():Deselect Layers")
 executeAction( idselectNoLayers, desc401, DialogModes.NO );
 
 // =======================================================
+try {
 var idselect = stringIDToTypeID( "select" );
     var desc402 = new ActionDescriptor();
     var idnull = stringIDToTypeID( "null" );
@@ -179,19 +176,52 @@ var idselect = stringIDToTypeID( "select" );
         var list10 = new ActionList();
         list10.putInteger( 5 );
     desc402.putList( idlayerID, list10 );
+	//alert("editSmartObject():Select Floor smart object")
 executeAction( idselect, desc402, DialogModes.NO );
+} catch (e) {
+	alert("Error selecting layer named 'Floor': " + e.message);
+}
 
 // =======================================================
+try {
 var idplacedLayerEditContents = stringIDToTypeID( "placedLayerEditContents" );
     var desc409 = new ActionDescriptor();
     var iddocumentID = stringIDToTypeID( "documentID" );
     desc409.putInteger( iddocumentID, 91 );
     var idlayerID = stringIDToTypeID( "layerID" );
     desc409.putInteger( idlayerID, 5 );
+	//alert("editSmartObject():Open smart object")
 executeAction( idplacedLayerEditContents, desc409, DialogModes.NO );
+} catch (e) {
+	alert("Error opening layer as a smart object: " + e.message);
+}
 
 // =======================================================
 
+// =======================================================
+try {
+var idselect = stringIDToTypeID( "select" );
+    var desc202 = new ActionDescriptor();
+    var idnull = stringIDToTypeID( "null" );
+        var ref28 = new ActionReference();
+        var idlayer = stringIDToTypeID( "layer" );
+		//The following line selects the smart object to edit using a layer name
+        ref28.putName( idlayer, "pattern" );
+    desc202.putReference( idnull, ref28 );
+    var idmakeVisible = stringIDToTypeID( "makeVisible" );
+    desc202.putBoolean( idmakeVisible, false );
+    var idlayerID = stringIDToTypeID( "layerID" );
+        var list10 = new ActionList();
+        list10.putInteger( 5 );
+    desc202.putList( idlayerID, list10 );
+	//alert("editSmartObject():Select Floor smart object")
+executeAction( idselect, desc202, DialogModes.NO );
+} catch (e) {
+	alert("Error selecting layer named 'pattern' " + e.message);
+}
+
+// =======================================================
+try {
 var idset = stringIDToTypeID( "set" );
     var desc432 = new ActionDescriptor();
     var idnull = stringIDToTypeID( "null" );
@@ -216,8 +246,12 @@ var idset = stringIDToTypeID( "set" );
         var idpattern = stringIDToTypeID( "pattern" );
         desc433.putObject( idpattern, idpattern, desc434 );
     var idpatternLayer = stringIDToTypeID( "patternLayer" );
+	//alert("editSmartObject():Install new pattern")
     desc432.putObject( idto, idpatternLayer, desc433 );
 executeAction( idset, desc432, DialogModes.NO );
+} catch (e) {
+	alert("Error assigning pattern: " + e.message);
+}
 
 activeDocument.save();
 activeDocument.close();
@@ -227,11 +261,12 @@ function updateSmartObject() {
 //Update the smart object call this after the editSmartObject() function
     var idplacedLayerUpdateAllModified = stringIDToTypeID("placedLayerUpdateAllModified");
     var desc = new ActionDescriptor();
+	//alert("updateSmartObject")
     executeAction(idplacedLayerUpdateAllModified, desc, DialogModes.NO);
 }
 
 function deletePatternByName(patternName) {
-	//Delete pattern previously created
+	//Delete 
     var s2t = function(s) { return app.stringIDToTypeID(s); };
 
     try {
