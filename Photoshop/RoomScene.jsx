@@ -18,11 +18,11 @@ function main(argv) {
 	var installMethod = docRef.info.keywords;
 
 	definePattern();
-	moveFile(fileName, outFolder);
+	
 	for (var i = 0; i < myRoomScenes.length; i++) {
 		var roomFileRef = app.open(File(myRoomScenes[i]));
 		var roomName = getBaseName();
-		editSmartObject();
+		editSmartObject(roomName, fileName, outFolder);
 		updateSmartObject();
 		var folderString = outFolder+"/" + "Res_DataSet";
 		if (Folder(folderString).exists == false) {new Folder(folderString).create()};
@@ -58,6 +58,7 @@ function main(argv) {
 	}
 	
 	deletePatternByName('myPattern');
+	moveFile(fileName, outFolder);
 
 }
 
@@ -144,10 +145,12 @@ function definePattern() {
 	activeDocument.close();
 }
 
-function editSmartObject() {
+function editSmartObject(roomName, fileName, outFolder) {
 //Modify a smart object in a photoshop PSD/PSB file 
 var doc0 = app.activeDocument;
-
+var psdName = roomName;
+var fileName = fileName;
+var outFolder = outFolder;
 var idselectNoLayers = stringIDToTypeID( "selectNoLayers" );
     var desc401 = new ActionDescriptor();
     var idnull = stringIDToTypeID( "null" );
@@ -179,7 +182,11 @@ var idselect = stringIDToTypeID( "select" );
 	//alert("editSmartObject():Select Floor smart object")
 executeAction( idselect, desc402, DialogModes.NO );
 } catch (e) {
-	alert("Error selecting layer named 'Floor': " + e.message);
+	moveFile(fileName, outFolder);
+	alert("Error selecting layer named 'Floor': " + psdName);
+	throw("Error selecting layer named 'Floor': " + psdName);
+
+	//break;
 }
 
 // =======================================================
@@ -193,7 +200,11 @@ var idplacedLayerEditContents = stringIDToTypeID( "placedLayerEditContents" );
 	//alert("editSmartObject():Open smart object")
 executeAction( idplacedLayerEditContents, desc409, DialogModes.NO );
 } catch (e) {
-	alert("Error opening layer as a smart object: " + e.message);
+	moveFile(fileName, outFolder);
+	alert("Error opening 'Floor' as a smart object: " + psdName);
+	throw("Error opening 'Floor' as a smart object: " + psdName);
+
+	//break;
 }
 
 // =======================================================
@@ -217,7 +228,11 @@ var idselect = stringIDToTypeID( "select" );
 	//alert("editSmartObject():Select Floor smart object")
 executeAction( idselect, desc202, DialogModes.NO );
 } catch (e) {
-	alert("Error selecting layer named 'pattern' " + e.message);
+	moveFile(fileName, outFolder);
+	alert("Error selecting layer named 'pattern' inside 'Floor' " + psdName);
+	throw("Error selecting layer named 'pattern' inside 'Floor' " + psdName);
+
+	//break;
 }
 
 // =======================================================
@@ -250,7 +265,11 @@ var idset = stringIDToTypeID( "set" );
     desc432.putObject( idto, idpatternLayer, desc433 );
 executeAction( idset, desc432, DialogModes.NO );
 } catch (e) {
-	alert("Error assigning pattern: " + e.message);
+	moveFile(fileName, outFolder);
+	alert("Error assigning pattern in 'Floor': " + psdName);
+	throw("Error assigning pattern in 'Floor': " + psdName);
+
+	//break;
 }
 
 activeDocument.save();
