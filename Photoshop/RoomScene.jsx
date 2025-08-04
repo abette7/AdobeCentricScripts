@@ -5,17 +5,54 @@ function main(argv) {
     var inFolder = argv[1].toString();
     var outFolder = argv[2].toString();
 //Variables for executing within photoshop, comment out the variables above and activate the call to main() at the EOF
-	//var fileName = '~/Desktop/In/919WL_252WL.tif';
+	//var fileName = '/Users/adam.betterton/Desktop/In/7054T_3296_Mono.tif';
 	//var inFolder = '~/Desktop/In';
 	//var outFolder = '~/Desktop/Out';
 	
 	//Location for layered room images. 
-	var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/Res_RoomScenes");
-	var myRoomScenes = myRoomFolder.getFiles();
+
 	var docRef = app.open(File(fileName));
 	
 	var swatchName = getBaseName();	
-	var installMethod = docRef.info.keywords;
+	var swatchKeywords = docRef.info.keywords;
+	var mySwatchData = getSwatchData(swatchKeywords);
+	//alert(mySwatchData);
+	var installMethod = mySwatchData[0];
+	var surfaceType = mySwatchData[1];
+	var usageType = mySwatchData[2];
+
+	var myRes = 1024
+
+	//alert("installMethod="+installMethod+", surfaceType="+surfaceType+", usageType="+usageType);
+
+	
+	if ( surfaceType == "HS" && usageType == "Commercial") {
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/HS Comm_RoomScenes");
+	}
+	
+	else if ( surfaceType == "SS" && usageType == "Commercial") {
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/SS Comm_RoomScenes");
+	}
+
+	else if ( surfaceType == "HS" && usageType == "Residential") {
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/HS Res_RoomScenes");
+	}
+	
+	else if ( surfaceType == "SS" && usageType == "Residential") {
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/SS Res_RoomScenes");
+	}
+	else {
+		alert("Roomscenes missing");
+		throw("Roomscenes missing");
+	}
+	//alert(myRoomFolder);
+	
+	if (Folder(myRoomFolder).exists == false) {
+		alert("Path not found: "+ myRoomFolder);
+		throw("Path not found: "+ myRoomFolder);
+	}
+	
+	var myRoomScenes = myRoomFolder.getFiles();
 
 	definePattern();
 	
@@ -24,8 +61,11 @@ function main(argv) {
 		var roomName = getBaseName();
 		editSmartObject(roomName, fileName, outFolder);
 		updateSmartObject();
-		var folderString = outFolder+"/" + "Res_DataSet";
+		var folderString = outFolder+"/" + "DataSet";
 		if (Folder(folderString).exists == false) {new Folder(folderString).create()};
+		//flatten then resize
+		flattenImage();
+		myResizeImage(myRes);
 		// jpg options;
 		var jpegOptions = new JPEGSaveOptions();
 		jpegOptions.quality = 8;
@@ -209,7 +249,6 @@ executeAction( idplacedLayerEditContents, desc409, DialogModes.NO );
 
 // =======================================================
 
-// =======================================================
 try {
 var idselect = stringIDToTypeID( "select" );
     var desc202 = new ActionDescriptor();
@@ -302,5 +341,77 @@ function deletePatternByName(patternName) {
     }
 }
 
+function getSwatchData(swatchKeywords) {
+	
+	//alert(swatchKeywords);
+	var separator = "=";
+	var swatchData = [];
+	for (var i = 0; i < swatchKeywords.length; i++) {
+		if (swatchKeywords[i].indexOf("installMethod=") !== -1) {
+			installMethod = swatchKeywords[i];
+			//alert(installMethod);
+			index = installMethod.indexOf(separator);
+			if (index > -1) {
+				swatchData.push(installMethod.substring(index + 1));
+			} else {
+				alert("Swatch image missing keyword installMethod=");
+			}
+		}
+	}	
+	for (var i = 0; i < swatchKeywords.length; i++) {
+		if (swatchKeywords[i].indexOf("surfaceType=") !== -1) {
+			surfaceType = swatchKeywords[i];
+			//alert(surfaceType);
+			index = surfaceType.indexOf(separator);
+			if (index > -1) {
+				swatchData.push(surfaceType.substring(index + 1));
+			} else {
+				alert("Swatch image missing keyword surfaceType=");
+			}
+		}
+	}
+	for (var i = 0; i < swatchKeywords.length; i++) {
+		if (swatchKeywords[i].indexOf("usageType=") !== -1) {
+			usageType = swatchKeywords[i];
+			//alert(usageType);
+			index = usageType.indexOf(separator);
+			if (index > -1) {
+				swatchData.push(usageType.substring(index + 1));
+			} else {
+				alert("Swatch image missing keyword usageType=");
+			}
+		}
+	}
+	//alert(swatchData);
+	return swatchData;
+	
+}
+
+function myResizeImage(myRes){
+
+	// =======================================================
+	var idimageSize = stringIDToTypeID( "imageSize" );
+	    var desc231 = new ActionDescriptor();
+	    var idwidth = stringIDToTypeID( "width" );
+	    var idpixelsUnit = stringIDToTypeID( "pixelsUnit" );
+	    desc231.putUnitDouble( idwidth, idpixelsUnit, myRes );
+	    var idscaleStyles = stringIDToTypeID( "scaleStyles" );
+	    desc231.putBoolean( idscaleStyles, true );
+	    var idconstrainProportions = stringIDToTypeID( "constrainProportions" );
+	    desc231.putBoolean( idconstrainProportions, true );
+	    var idinterfaceIconFrameDimmed = stringIDToTypeID( "interfaceIconFrameDimmed" );
+	    var idinterpolationType = stringIDToTypeID( "interpolationType" );
+	    var iddeepUpscale = stringIDToTypeID( "deepUpscale" );
+	    desc231.putEnumerated( idinterfaceIconFrameDimmed, idinterpolationType, iddeepUpscale );
+	    var idnoise = stringIDToTypeID( "noise" );
+	    desc231.putInteger( idnoise, 0 );
+	executeAction( idimageSize, desc231, DialogModes.NO );
+
+}
+
+function flattenImage(){
+	var idflattenImage = stringIDToTypeID( "flattenImage" );
+	executeAction( idflattenImage, undefined, DialogModes.NO );
+}
 
 //main();
