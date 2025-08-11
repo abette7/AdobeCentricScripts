@@ -5,7 +5,7 @@ function main(argv) {
     var inFolder = argv[1].toString();
     var outFolder = argv[2].toString();
 //Variables for executing within photoshop, comment out the variables above and activate the call to main() at the EOF
-	//var fileName = '/Users/adam.betterton/Desktop/In/7054T_3296_Mono.tif';
+	//var fileName = '~/Desktop/In/7054T_3296_Mono.tif';
 	//var inFolder = '~/Desktop/In';
 	//var outFolder = '~/Desktop/Out';
 	
