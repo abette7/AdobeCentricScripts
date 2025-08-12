@@ -27,19 +27,19 @@ function main(argv) {
 
 	
 	if ( surfaceType == "HS" && usageType == "Commercial") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/HS Comm_RoomScenes");
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/HS Comm_RoomScenes");
 	}
 	
 	else if ( surfaceType == "SS" && usageType == "Commercial") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/SS Comm_RoomScenes");
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/SS Comm_RoomScenes");
 	}
 
 	else if ( surfaceType == "HS" && usageType == "Residential") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/HS Res_RoomScenes");
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/HS Res_RoomScenes");
 	}
 	
 	else if ( surfaceType == "SS" && usageType == "Residential") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/SS Res_RoomScenes");
+		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/SS Res_RoomScenes");
 	}
 	else {
 		alert("Roomscenes missing");
@@ -52,7 +52,7 @@ function main(argv) {
 		throw("Path not found: "+ myRoomFolder);
 	}
 	
-	var myRoomScenes = myRoomFolder.getFiles();
+	var myRoomScenes = getPSDFilesInFolder(myRoomFolder);
 
 	definePattern();
 	
@@ -412,6 +412,26 @@ function myResizeImage(myRes){
 function flattenImage(){
 	var idflattenImage = stringIDToTypeID( "flattenImage" );
 	executeAction( idflattenImage, undefined, DialogModes.NO );
+}
+
+function getPSDFilesInFolder(folderPath) {
+    var folder = new Folder(folderPath);
+    if (!folder.exists) {
+        alert("Folder does not exist: " + folderPath);
+        return [];
+    }
+
+    var files = folder.getFiles();
+    var psdFiles = [];
+
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        // Check if it's a file and its extension is .psd (case-insensitive)
+        if (file instanceof File && file.name.match(/\.psd$/i)) {
+            psdFiles.push(file);
+        }
+    }
+    return psdFiles;
 }
 
 //main();
