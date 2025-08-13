@@ -9,10 +9,21 @@ function main(argv) {
 	//var inFolder = '~/Desktop/In';
 	//var outFolder = '~/Desktop/Out';
 	
-	//Location for layered room images. 
-
-	var docRef = app.open(File(fileName));
+//User variables -- Set these to your own needs
+	var myRes = 1024 // pixel dimension for jpeg save.
+	var HardSurfaceCommercialRoomPath = "/Volumes/Photography_2025/AI Stuff/myRooms/HS Comm_RoomScenes";
+	var SoftSurfaceCommercialRoomPath = "/Volumes/Photography_2025/AI Stuff/myRooms/SS Comm_RoomScenes";
+	var HardSurfaceResidentialRoomPath = "/Volumes/Photography_2025/AI Stuff/myRooms/HS Res_RoomScenes";
+	var SoftSurfaceResidentialRoomPath = "/Volumes/Photography_2025/AI Stuff/myRooms/SS Res_RoomScenes";
 	
+//Open patternSwatch -- Needs more error catching.
+	
+	try {
+		var docRef = app.open(File(fileName));
+	} catch (e) {
+		alert("Error opening swatch pattern image: " + e.message);
+	}
+
 	var swatchName = getBaseName();	
 	var swatchKeywords = docRef.info.keywords;
 	var mySwatchData = getSwatchData(swatchKeywords);
@@ -21,37 +32,10 @@ function main(argv) {
 	var surfaceType = mySwatchData[1];
 	var usageType = mySwatchData[2];
 
-	var myRes = 1024
-
 	//alert("installMethod="+installMethod+", surfaceType="+surfaceType+", usageType="+usageType);
 
-	
-	if ( surfaceType == "HS" && usageType == "Commercial") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/HS Comm_RoomScenes");
-	}
-	
-	else if ( surfaceType == "SS" && usageType == "Commercial") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/SS Comm_RoomScenes");
-	}
+	myRoomFolder = getMyRoomFolder(surfaceType, usageType, HardSurfaceCommercialRoomPath, SoftSurfaceCommercialRoomPath, HardSurfaceResidentialRoomPath, SoftSurfaceResidentialRoomPath);
 
-	else if ( surfaceType == "HS" && usageType == "Residential") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/HS Res_RoomScenes");
-	}
-	
-	else if ( surfaceType == "SS" && usageType == "Residential") {
-		var myRoomFolder = Folder("/Volumes/Photography_2025/AI Stuff/myRooms/SS Res_RoomScenes");
-	}
-	else {
-		alert("Roomscenes missing");
-		throw("Roomscenes missing");
-	}
-	//alert(myRoomFolder);
-	
-	if (Folder(myRoomFolder).exists == false) {
-		alert("Path not found: "+ myRoomFolder);
-		throw("Path not found: "+ myRoomFolder);
-	}
-	
 	var myRoomScenes = getPSDFilesInFolder(myRoomFolder);
 
 	definePattern();
@@ -59,40 +43,24 @@ function main(argv) {
 	for (var i = 0; i < myRoomScenes.length; i++) {
 		var roomFileRef = app.open(File(myRoomScenes[i]));
 		var roomName = getBaseName();
+		
 		editSmartObject(roomName, fileName, outFolder);
 		updateSmartObject();
+		
 		var folderString = outFolder+"/" + "DataSet";
 		if (Folder(folderString).exists == false) {new Folder(folderString).create()};
 		//flatten then resize
 		flattenImage();
 		myResizeImage(myRes);
-		// jpg options;
-		var jpegOptions = new JPEGSaveOptions();
-		jpegOptions.quality = 8;
-		jpegOptions.embedColorProfile = true;
-		jpegOptions.matte = MatteType.NONE;
-		//save jpg as a copy:
+		
 		var thedoc = app.activeDocument;
-		//var roomKeywords = thedoc.info.keywords;
-		//var myKeywords = roomKeywords+" with floor "+swatchName+" installed "+installMethod+".";
 		var roomDesc = thedoc.info.caption;
 		var myRoomDesc = roomDesc+" with floor "+swatchName+" installed "+installMethod+".";
 		var myKeywords = ""
-		thedoc.info.keywords = [myKeywords];
-		thedoc.info.caption = myRoomDesc;
-		thedoc.saveAs((new File(folderString+"/"+swatchName+"_"+roomName+"_RS.jpg")),jpegOptions,true);
 		
-		//Write a caption file
-		var captionFile = folderString+"/"+swatchName+"_"+roomName+"_RS.txt";
-		var myCaption = new File(captionFile);
-		myCaption.encoding = "UTF8";
-		try {
-		  myCaption.open("w");
-		  myCaption.writeln(myRoomDesc);
-		  myCaption.close();
-		} catch (e) {
-		  alert("Error writing file: " + e);
-		}
+		saveJPEG(myRoomDesc, myKeywords, folderString, swatchName, roomName);
+		
+		writeCaptionFile(folderString, swatchName, roomName, myRoomDesc);
 		
 		app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
 	}
@@ -434,4 +402,64 @@ function getPSDFilesInFolder(folderPath) {
     return psdFiles;
 }
 
+function getMyRoomFolder(surfaceType, usageType, HardSurfaceCommercialRoomPath, SoftSurfaceCommercialRoomPath, HardSurfaceResidentialRoomPath, SoftSurfaceResidentialRoomPath){
+	if ( surfaceType == "HS" && usageType == "Commercial") {
+		return HardSurfaceCommercialRoomPath;
+	}
+
+	else if ( surfaceType == "SS" && usageType == "Commercial") {
+		return SoftSurfaceCommercialRoomPath;
+	}
+
+	else if ( surfaceType == "HS" && usageType == "Residential") {
+		return HardSurfaceResidentialRoomPath;
+	}
+
+	else if ( surfaceType == "SS" && usageType == "Residential") {
+		return SoftSurfaceResidentialRoomPath;
+	}
+	else {
+		alert("Roomscenes missing");
+		throw("Roomscenes missing");
+	}
+//alert(myRoomFolder);
+
+	if (Folder(myRoomFolder).exists == false) {
+		alert("Path not found: "+ myRoomFolder);
+		throw("Path not found: "+ myRoomFolder);
+	}
+}
+
+function saveJPEG(myRoomDesc, myKeywords, folderString, swatchName, roomName) {
+	try {
+	var jpegOptions = new JPEGSaveOptions();
+	jpegOptions.quality = 8;
+	jpegOptions.embedColorProfile = true;
+	jpegOptions.matte = MatteType.NONE;
+	
+	var myDoc = app.activeDocument;
+	myDoc.info.keywords = [myKeywords];
+	myDoc.info.caption = myRoomDesc;
+	myDoc.saveAs((new File(folderString+"/"+swatchName+"_"+roomName+"_RS.jpg")),jpegOptions,true);
+	} catch (e) {
+		alert("Error saving JPEG: " + e.message);
+		throw("Error saving JPEG: " + e.message);
+	}
+}
+
+function writeCaptionFile(folderString, swatchName, roomName, myRoomDesc) {
+	
+	var captionFile = folderString+"/"+swatchName+"_"+roomName+"_RS.txt";
+	var myCaption = new File(captionFile);
+	myCaption.encoding = "UTF8";
+	try {
+	  myCaption.open("w");
+	  myCaption.writeln(myRoomDesc);
+	  myCaption.close();
+	} catch (e) {
+	  alert("Error writing file: " + e.message);
+	  throw("Error writing file: " + e.message)
+	}
+	
+}
 //main();
