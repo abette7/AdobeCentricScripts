@@ -1,0 +1,197 @@
+const app = require('photoshop').app;
+const core = require('photoshop').core;
+const { batchPlay } = require('photoshop').action;
+const { ElementPlacement, AnchorPosition } = require('photoshop').constants;
+
+async function completeCanvasLayerAndRotationPipeline() {
+    const doc = app.activeDocument;
+    
+    if (!doc) {
+        await app.showAlert("No active document found. Please open an image first.");
+        return;
+    }
+
+    // 18 columns * 2 unique rows = 36 unique source planks.
+    // Row 3 will be cloned directly from Row 1 to allow for a perfect step-and-repeat loop.
+    const TARGET_COUNT = 36; 
+    const COLS = 18; // 18 columns (1800% width)
+    const ROWS = 3;  // 3 rows (300% height)
+
+    await core.executeAsModal(async () => {
+        
+        // 1. CANVAS RESIZE: Expand horizontal to 1800% and vertical to 300% from the center
+        const newWidth = doc.width * 18;
+        const newHeight = doc.height * 3;
+        await doc.resizeCanvas(newWidth, newHeight, AnchorPosition.MIDDLECENTER);
+
+        // 2. PREP: Unlock layers and convert Background to a normal layer
+        for (let i = 0; i < doc.layers.length; i++) {
+            const lyr = doc.layers[i];
+            if (lyr.isBackgroundLayer) {
+                lyr.background = false; 
+            }
+            if (lyr.locked) {
+                lyr.locked = false;
+            }
+        }
+
+        // 3. SNAPSHOT: Save references to the original starting layers
+        const originalLayers = [];
+        for (let i = 0; i < doc.layers.length; i++) {
+            originalLayers.push(doc.layers[i]);
+        }
+
+        let currentCount = originalLayers.length;
+        if (currentCount === 0) return;
+
+        // 4. DUPLICATE: Round-robin duplication loop to reach exactly 36 unique layers
+        let index = 0;
+        while (currentCount < TARGET_COUNT) {
+            const layerToDuplicate = originalLayers[index];
+            await layerToDuplicate.duplicate();
+            currentCount++;
+            index = (index + 1) % originalLayers.length;
+        }
+
+        // 5. SHUFFLE: Collect all 36 layers and randomize their order in memory
+        const layersToShuffle = [];
+        for (let i = 0; i < doc.layers.length; i++) {
+            layersToShuffle.push(doc.layers[i]);
+        }
+
+        // Fisher-Yates shuffle algorithm
+        for (let i = layersToShuffle.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = layersToShuffle[i];
+            layersToShuffle[i] = layersToShuffle[j];
+            layersToShuffle[j] = temp;
+        }
+
+        // 6. REORDER: Restructure the layers panel stack to match the shuffled order
+        for (let i = layersToShuffle.length - 1; i >= 0; i--) {
+            const currentTopLayer = doc.layers[0];
+            if (layersToShuffle[i].id !== currentTopLayer.id) {
+                await layersToShuffle[i].move(currentTopLayer, ElementPlacement.PLACEBEFORE);
+            }
+        }
+
+        // 7. RENAME, TILE, SHIFT, ROTATE & CLONE ROW 3: Merged single-pass layout pipeline
+        const docWidth = doc.width;
+        const docHeight = doc.height;
+        const cellWidth = docWidth / COLS;
+        const cellHeight = docHeight / ROWS;
+
+        // Shift map for the 36 unique source layers.
+        // The vertical shifts align perfectly per column so the tracks slide seamlessly together.
+        const shiftMap = {
+            // Row 1 (Layers 2–18)
+            2: 0.50,  3: 0.25,  4: 0.75,  5: 0.15,  6: 0.50,  7: 0.90,  8: 0.25,  9: 0.75, 10: 0.15, 11: 0.50, 12: 0.90, 13: 0.25, 14: 0.75, 15: 0.15, 16: 0.50, 17: 0.90, 18: 0.25,
+            // Row 2 (Layers 20–36)
+            20: 0.50, 21: 0.25, 22: 0.75, 23: 0.15, 24: 0.50, 25: 0.90, 26: 0.25, 27: 0.75, 28: 0.15, 29: 0.50, 30: 0.90, 31: 0.25, 32: 0.75, 33: 0.15, 34: 0.50, 35: 0.90, 36: 0.25
+        };
+
+        // Snapshot the base layers before creating duplicates dynamically in the loop
+        const baseLayers = [];
+        for (let i = 0; i < doc.layers.length; i++) {
+            baseLayers.push(doc.layers[i]);
+        }
+
+        for (let i = 0; i < baseLayers.length; i++) {
+            const layer = baseLayers[i];
+            
+            const layerNum = i + 1;
+            layer.name = layerNum.toString();
+
+            // Grid coordinates calculation
+            const col = i % COLS;
+            const row = Math.floor(i / COLS); // 0 = Top Row, 1 = Middle Row
+
+            const bounds = layer.bounds;
+            const layerHeight = bounds.bottom - bounds.top;
+
+            const shiftPercent = shiftMap[layerNum] || 0;
+            const verticalShift = layerHeight * shiftPercent;
+
+            const targetX = col * cellWidth;
+            const targetY = (row * cellHeight) + verticalShift;
+
+            const currentX = bounds.left;
+            const currentY = bounds.top;
+
+            const deltaX = targetX - currentX;
+            const deltaY = targetY - currentY;
+
+            const needsTranslation = (deltaX !== 0 || deltaY !== 0);
+            const needsRotation = (layerNum % 2 === 0);
+
+            if (needsTranslation || needsRotation) {
+                // Isolate selection to prevent grouped actions
+                await batchPlay([
+                    {
+                        _obj: "select",
+                        _target: [{ _ref: "layer", _id: layer.id }],
+                        makeVisible: false
+                    }
+                ], {});
+
+                if (needsTranslation) {
+                    await layer.translate(deltaX, deltaY);
+                }
+
+                if (needsRotation) {
+                    await layer.rotate(180);
+                }
+            }
+
+            // SEAMLESS REPEAT GENERATION: If this is Row 1, clone it to build Row 3 & the top tile cap
+            if (row === 0) {
+                await batchPlay([
+                    {
+                        _obj: "select",
+                        _target: [{ _ref: "layer", _id: layer.id }],
+                        makeVisible: false
+                    }
+                ], {});
+
+                // A. Duplicate Row 1 layer down to build the matching Bottom Row (Row 3)
+                await layer.duplicate();
+                const row3Layer = doc.activeLayers[0];
+                
+                if (row3Layer) {
+                    const row3Num = layerNum + 36; // Layers 37 to 54
+                    row3Layer.name = row3Num.toString();
+
+                    // Translate down by exactly 2 full row cells
+                    await row3Layer.translate(0, 2 * cellHeight);
+
+                    // B. If a vertical shift exists, loop the overhang back to the very top of the canvas
+                    if (verticalShift > 0) {
+                        await row3Layer.duplicate();
+                        const stackedLayer = doc.activeLayers[0];
+
+                        if (stackedLayer) {
+                            stackedLayer.name = `${row3Num} Stacked`;
+
+                            const dupBounds = stackedLayer.bounds;
+                            const targetBounds = layer.bounds; // Row 1 live bounds
+
+                            // Snap the duplicate's bottom edge directly against the Top Row's top edge
+                            const stackDeltaX = targetBounds.left - dupBounds.left;
+                            const stackDeltaY = targetBounds.top - dupBounds.bottom;
+
+                            if (stackDeltaX !== 0 || stackDeltaY !== 0) {
+                                await stackedLayer.translate(stackDeltaX, stackDeltaY);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }, {"commandName": "Resize Canvas, Replicate, Shuffle, Rename, Tile, Shift, and Rotate Even Layers"});
+}
+
+// Run the script
+completeCanvasLayerAndRotationPipeline().catch(err => {
+    console.error("Script failed: ", err);
+});
