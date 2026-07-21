@@ -1,0 +1,176 @@
+const app = require('photoshop').app;
+const core = require('photoshop').core;
+const { batchPlay } = require('photoshop').action;
+const { ElementPlacement, AnchorPosition } = require('photoshop').constants;
+
+async function runVLPlankFloor() {
+    const doc = app.activeDocument;
+    
+    if (!doc) {
+        await app.showAlert("No active document found. Please open an image first.");
+        return;
+    }
+
+    await core.executeAsModal(async () => {
+        // 1. PREP: Unlock background and convert background to a normal layer.
+        // Also unlock any locked layers to allow manipulation.
+        for (let i = 0; i < doc.layers.length; i++) {
+            const lyr = doc.layers[i];
+            if (lyr.isBackgroundLayer) {
+                lyr.background = false; 
+            }
+            if (lyr.locked) {
+                lyr.locked = false;
+            }
+        }
+
+        // 2. METADATA: Measure original document size and source layer heights.
+        // The layers in the document represent planks of variant vertical lengths.
+        const sourceLayers = [];
+        const sourceMetadata = [];
+        let maxPlankHeight = 0;
+
+        for (let i = 0; i < doc.layers.length; i++) {
+            const lyr = doc.layers[i];
+            sourceLayers.push(lyr);
+            
+            const bounds = lyr.bounds;
+            const h = bounds.bottom - bounds.top;
+            const w = bounds.right - bounds.left;
+            
+            if (h <= 0 || w <= 0) {
+                continue; // Skip any empty layers
+            }
+
+            sourceMetadata.push({
+                layer: lyr,
+                width: w,
+                height: h
+            });
+
+            if (h > maxPlankHeight) {
+                maxPlankHeight = h;
+            }
+        }
+
+        if (sourceMetadata.length === 0) {
+            await app.showAlert("No valid source layers found in the document.");
+            return;
+        }
+
+        // 3. CANVAS RESIZE: Increase the canvas width to 2400% of current width, 
+        // and set the height to match that same new pixel dimension (square canvas).
+        // Using AnchorPosition.TOPLEFT keeps the original layers pinned to (0,0)
+        // while expanding the canvas downwards and to the right.
+        const originalWidth = doc.width;
+        const newWidth = originalWidth * 24;
+        const newHeight = newWidth;
+
+        await doc.resizeCanvas(newWidth, newHeight, AnchorPosition.TOPLEFT);
+
+        // 4. GRID LAYOUT AND STAGGER PATTERN
+        // Width of each column is equal to the original document width (100% width)
+        const colWidth = originalWidth;
+        const numCols = 24;
+        let globalPlankCount = 1;
+
+        // Iterate column by column
+        for (let col = 0; col < numCols; col++) {
+            // To create a realistic "random stagger" pattern, we must ensure that the 
+            // first horizontal joint/seam in each column occurs at a randomized vertical position.
+            // Starting our vertical stack at a random negative offset up to the longest plank's height
+            // ensures the top of the canvas is fully covered, and the seams are completely randomized.
+            let currentY = -Math.random() * maxPlankHeight;
+
+            while (currentY < newHeight) {
+                // Select a random plank template from the available source layers
+                const randIdx = Math.floor(Math.random() * sourceMetadata.length);
+                const srcMeta = sourceMetadata[randIdx];
+
+                // Select the source layer so we can duplicate it cleanly
+                await batchPlay([
+                    {
+                        _obj: "select",
+                        _target: [{ _ref: "layer", _id: srcMeta.layer.id }],
+                        makeVisible: false
+                    }
+                ], {});
+
+                // Duplicate the source layer
+                await srcMeta.layer.duplicate();
+                const newLyr = doc.activeLayers[0];
+
+                if (!newLyr) {
+                    continue;
+                }
+
+                // Isolate selection to the newly duplicated layer
+                await batchPlay([
+                    {
+                        _obj: "select",
+                        _target: [{ _ref: "layer", _id: newLyr.id }],
+                        makeVisible: false
+                    }
+                ], {});
+
+                // Randomly flip horizontally and/or vertically to maximize visual variation
+                // and break up obvious wood grain repetitions.
+                const flipHoriz = Math.random() < 0.5;
+                const flipVert = Math.random() < 0.5;
+
+                if (flipHoriz) {
+                    await batchPlay([
+                        {
+                            _obj: "flip",
+                            _target: [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }],
+                            axis: { _enum: "orientation", _value: "horizontal" }
+                        }
+                    ], {});
+                }
+
+                if (flipVert) {
+                    await batchPlay([
+                        {
+                            _obj: "flip",
+                            _target: [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }],
+                            axis: { _enum: "orientation", _value: "vertical" }
+                        }
+                    ], {});
+                }
+
+                // Rename the layer sequentially for easy identification in the layers panel
+                newLyr.name = `Col ${col + 1} - Plank ${globalPlankCount++}`;
+
+                // Measure the duplicated layer's bounds after any flipping to ensure exact alignment
+                const bounds = newLyr.bounds;
+                const currentX = bounds.left;
+                const currentYOffset = bounds.top;
+
+                // Target position for the plank's top-left corner
+                const targetX = col * colWidth;
+                const targetY = currentY;
+
+                // Calculate the exact shift needed to place the plank into the grid slot
+                const deltaX = targetX - currentX;
+                const deltaY = targetY - currentYOffset;
+
+                if (deltaX !== 0 || deltaY !== 0) {
+                    await newLyr.translate(deltaX, deltaY);
+                }
+
+                // Increment our vertical tracker by the height of this plank to place the next one
+                currentY += srcMeta.height;
+            }
+        }
+
+        // 5. CLEANUP: Hide the original source template layers so they do not clutter the final layout
+        for (let i = 0; i < sourceLayers.length; i++) {
+            sourceLayers[i].visible = false;
+        }
+
+    }, {"commandName": "Generate Variable Length Staggered Plank Floor"});
+}
+
+runVLPlankFloor().catch(err => {
+    console.error("VL_PlankFloor Script failed: ", err);
+});
